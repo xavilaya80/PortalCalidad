@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal Calidad</title>
+<meta name="theme-color" content="#0284c7">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="pantallaLogin" class="login-wrap">
+  <div class="login-card">
+    <img src="icons/icon-192.png" alt="" class="login-logo">
+    <h1>Portal Calidad</h1>
+    <p class="login-sub">Especificaciones técnicas y reportes</p>
+
+    <label for="inputUsuario">Usuario</label>
+    <select id="inputUsuario">
+      <option value="">Seleccioná tu usuario</option>
+      <option value="estrella">Estrella</option>
+      <option value="micaela">Micaela</option>
+      <option value="manuel">Manuel</option>
+    </select>
+
+    <label for="inputClave">Clave</label>
+    <input type="password" id="inputClave" autocomplete="current-password" placeholder="••••••••">
+
+    <button id="btnLogin" class="btn btn-primary btn-full">Ingresar</button>
+    <p id="loginError" class="msg-error" hidden></p>
+  </div>
+</section>
+
+<!-- ============ APLICACION ============ -->
+<div id="pantallaApp" hidden>
+
+  <header class="top-bar">
+    <div class="top-left">
+      <img src="icons/icon-192.png" alt="" class="top-logo">
+      <span class="top-title">Portal Calidad</span>
+    </div>
+    <div class="top-right">
+      <span id="badgeUsuario" class="badge"></span>
+      <button id="btnSalir" class="btn btn-ghost">Salir</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab activa" data-panel="panelSpecs">Especificaciones</button>
+    <button class="tab" data-panel="panelPdfs">Reportes PDF</button>
+  </nav>
+
+  <!-- ---- ESPECIFICACIONES ---- -->
+  <main id="panelSpecs" class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Especificaciones técnicas</h2>
+        <p id="specsModo" class="hint"></p>
+      </div>
+      <div class="panel-actions">
+        <input type="search" id="buscarSpec" placeholder="Buscar producto...">
+        <button id="btnRecargarSpecs" class="btn btn-ghost">Recargar</button>
+      </div>
+    </div>
+    <div id="specsEstado" class="estado">Cargando...</div>
+    <div class="tabla-scroll">
+      <table id="tablaSpecs" class="tabla" hidden>
+        <thead><tr id="specsHead"></tr></thead>
+        <tbody id="specsBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- ---- PDFs ---- -->
+  <main id="panelPdfs" class="panel" hidden>
+    <div class="panel-head">
+      <h2>Reportes PDF</h2>
+    </div>
+
+    <div class="filtros">
+      <div class="filtro">
+        <label for="fTexto">Buscar por nombre</label>
+        <input type="search" id="fTexto" placeholder="Ej: Consolidado">
+      </div>
+      <div class="filtro">
+        <label for="fTipo">Tipo</label>
+        <select id="fTipo">
+          <option value="">Todos</option>
+          <option>Consolidado por máquina</option>
+          <option>Resumen de turno</option>
+        </select>
+      </div>
+      <div class="filtro">
+        <label for="fMaquina">Máquina</label>
+        <input type="text" id="fMaquina" placeholder="Ej: 3">
+      </div>
+      <div class="filtro">
+        <label for="fTurno">Turno</label>
+        <select id="fTurno">
+          <option value="">Todos</option>
+          <option value="Mañana">Turno Mañana</option>
+          <option value="Noche">Turno Noche</option>
+        </select>
+      </div>
+      <div class="filtro">
+        <label for="fDesde">Desde</label>
+        <input type="date" id="fDesde">
+      </div>
+      <div class="filtro">
+        <label for="fHasta">Hasta</label>
+        <input type="date" id="fHasta">
+      </div>
+      <div class="filtro filtro-botones">
+        <button id="btnBuscarPdfs" class="btn btn-primary">Buscar</button>
+        <button id="btnLimpiarPdfs" class="btn btn-ghost">Limpiar</button>
+      </div>
+    </div>
+
+    <div id="pdfsEstado" class="estado">Usá los filtros y presioná Buscar.</div>
+    <div class="tabla-scroll">
+      <table id="tablaPdfs" class="tabla" hidden>
+        <thead>
+          <tr>
+            <th>Archivo</th><th>Tipo</th><th>Máquina</th>
+            <th>Fecha</th><th>Turno</th><th>Tamaño</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="pdfsBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+</div>
+
+<!-- ============ MODAL EDICION ============ -->
+<div id="modalSpec" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalTitulo">Editar especificación</h3>
+      <button id="modalCerrar" class="btn-x" aria-label="Cerrar">&times;</button>
+    </div>
+    <div id="modalCampos" class="modal-body"></div>
+    <p id="modalError" class="msg-error" hidden></p>
+    <div class="modal-pie">
+      <button id="modalCancelar" class="btn btn-ghost">Cancelar</button>
+      <button id="modalGuardar" class="btn btn-primary">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
