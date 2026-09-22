@@ -10,7 +10,7 @@
 
 // ============ CONFIGURACION ============
 // Pegar aca la URL /exec del despliegue del portal (NO la de AppCalidad).
-const PORTAL_URL = 'PEGAR_AQUI_LA_URL_DEL_PORTAL';
+const PORTAL_URL = 'https://script.google.com/macros/s/AKfycby-g67rvd3sGRXueL-e3uomNnKAj9NtlMYBCy6R0LYxIeftx47iE1m8VDZDMdtwhOnh/exec';
 
 // ============ ESTADO ============
 let sesion = null;        // { token, usuario, rol }
