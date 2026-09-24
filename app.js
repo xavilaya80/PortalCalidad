@@ -822,7 +822,17 @@ function setupBuscadorProducto() {
     const filtro = input.value.toLowerCase().trim();
     drop.innerHTML = '';
 
-    const encontrados = analisisProductos.filter(p => p.toLowerCase().includes(filtro));
+    /*
+     * Se muestra el NOMBRE y se guarda el CODIGO.
+     *
+     * La cabecera de inspecciones guarda el codigo del producto, no su nombre,
+     * asi que el backend necesita el codigo para buscar. Pero el inspector
+     * conoce el nombre: es lo que ve en terreno al elegir el producto.
+     *
+     * El filtro mira los dos, por si alguien busca por codigo.
+     */
+    const encontrados = analisisProductos.filter(p =>
+      p.nombre.toLowerCase().includes(filtro) || p.id.toLowerCase().includes(filtro));
 
     if (!encontrados.length) {
       const vacio = document.createElement('div');
@@ -835,12 +845,12 @@ function setupBuscadorProducto() {
       encontrados.forEach(p => {
         const item = document.createElement('div');
         item.className = 'combobox-item';
-        item.textContent = p;
+        item.textContent = p.nombre;
         item.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          input.value = p;
-          oculto.value = p;
+          input.value = p.nombre;
+          oculto.value = p.id;
           $('btnAnalizar').disabled = false;
           drop.style.display = 'none';
         });
