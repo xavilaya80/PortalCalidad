@@ -9,6 +9,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </head>
 <body>
 
@@ -52,6 +53,7 @@
   <nav class="tabs">
     <button class="tab activa" data-panel="panelSpecs">Especificaciones</button>
     <button class="tab" data-panel="panelPdfs">Reportes PDF</button>
+    <button class="tab" data-panel="panelAnalisis">Análisis</button>
   </nav>
 
   <!-- ---- ESPECIFICACIONES ---- -->
@@ -140,6 +142,66 @@
         </thead>
         <tbody id="pdfsBody"></tbody>
       </table>
+    </div>
+  </main>
+
+  <!-- ---- ANÁLISIS ---- -->
+  <main id="panelAnalisis" class="panel" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Tendencia por cavidad</h2>
+        <p class="hint">
+          Cómo se movió una medición a lo largo del tiempo, cavidad por cavidad.
+          Sirve para ver si el molde está parejo o si hay una cavidad que se desvía siempre.
+        </p>
+      </div>
+    </div>
+
+    <div class="filtros">
+      <div class="filtro filtro-ancho">
+        <label for="aProducto">Producto</label>
+        <select id="aProducto"><option value="">Elegí un producto</option></select>
+      </div>
+      <div class="filtro">
+        <label for="aVariable">Medición</label>
+        <select id="aVariable" disabled></select>
+      </div>
+      <div class="filtro">
+        <label for="aCavidad">Cavidad</label>
+        <select id="aCavidad" disabled><option value="">Todas (promedio)</option></select>
+      </div>
+      <div class="filtro">
+        <label for="aDesde">Desde</label>
+        <input type="date" id="aDesde">
+      </div>
+      <div class="filtro">
+        <label for="aHasta">Hasta</label>
+        <input type="date" id="aHasta">
+      </div>
+      <div class="filtro filtro-botones">
+        <button id="btnAnalizar" class="btn btn-primary" disabled>Analizar</button>
+      </div>
+    </div>
+
+    <div id="aEstado" class="estado">Elegí un producto y presioná Analizar.</div>
+
+    <div id="aResultado" hidden>
+      <div class="gráfico-caja">
+        <canvas id="aChart"></canvas>
+      </div>
+      <p id="aLeyenda" class="analisis-leyenda"></p>
+
+      <div class="tabla-scroll" style="margin-top:18px;">
+        <table id="aTabla" class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Hora</th><th>Máquina</th>
+              <th>Cavidades</th><th>Mínimo</th><th>Promedio</th><th>Máximo</th><th>Rango</th>
+            </tr>
+          </thead>
+          <tbody id="aTablaBody"></tbody>
+        </table>
+      </div>
     </div>
   </main>
 

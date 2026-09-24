@@ -10,6 +10,14 @@
 
 // ============ CONFIGURACION ============
 // Pegar aca la URL /exec del despliegue del portal (NO la de AppCalidad).
+/*
+ * URL del despliegue del portal (Apps Script, termina en /exec).
+ *
+ * NO es la de AppCalidad: son dos proyectos distintos con dos URLs distintas.
+ * Si esto queda con un texto que no sea una direccion valida, el navegador manda
+ * el POST a la propia pagina de GitHub Pages, que solo sirve archivos, y la
+ * respuesta es un error 405.
+ */
 const PORTAL_URL = 'https://script.google.com/macros/s/AKfycby-g67rvd3sGRXueL-e3uomNnKAj9NtlMYBCy6R0LYxIeftx47iE1m8VDZDMdtwhOnh/exec';
 
 // ============ ESTADO ============
@@ -346,7 +354,9 @@ async function buscarPdfs() {
     dibujarPdfs(r.archivos);
     estado.hidden = !r.truncado;
     if (r.truncado) {
-      estado.textContent = 'Se muestran los primeros ' + r.total + ' resultados. Afiná los filtros para ver menos.';
+      // Ahora son los MAS RECIENTES, no los primeros que devolvio Drive.
+      estado.textContent = 'Se muestran los ' + r.total + ' reportes más recientes. ' +
+        'Quedaron ' + (r.truncados || 0) + ' fuera: usá los filtros para acotar la búsqueda.';
     }
   } catch (err) {
     estado.textContent = err.message;
@@ -497,11 +507,314 @@ function limpiarFiltros() {
   $('tablaPdfs').hidden = true;
 }
 
+// ============ ANÁLISIS DE TENDENCIA ============
+/*
+ * Esta pantalla vivia en AppCalidad y se movio aqui.
+ *
+ * El motivo es de peso, literalmente: sus graficos necesitan el valor de CADA
+ * cavidad de CADA ronda, y en la app de terreno ese dato viajaba junto al
+ * historial, o sea despues de cada guardado. Con siete dias y moldes de hasta 24
+ * cavidades la respuesta llegaba a varios megabytes y Apps Script no alcanzaba a
+ * servirla: el historial dejaba de cargar y guardar una ronda tardaba minutos.
+ *
+ * Aqui el costo se paga una vez, cuando alguien abre la pestaña, y no interfiere
+ * con el trabajo en planta. De paso hay pantalla grande: se grafican ocho
+ * mediciones en vez de tres y se agrega la tabla de valores por ronda.
+ */
+
+let analisisVariables = [];
+let analisisRondas = [];
+let analisisTolerancias = {};
+let analisisChart = null;
+let analisisCatalogoCargado = false;
+
+async function cargarCatalogoAnalisis() {
+  if (analisisCatalogoCargado) return;
+
+  const estado = $('aEstado');
+  estado.hidden = false;
+  estado.textContent = 'Cargando productos...';
+
+  try {
+    const r = await llamar('analisisCatalogo');
+    if (r.status !== 'success') { estado.textContent = r.message || 'No se pudo cargar.'; return; }
+
+    const selProd = $('aProducto');
+    selProd.innerHTML = '<option value="">Elegí un producto</option>';
+    (r.productos || []).forEach(p => {
+      const o = document.createElement('option');
+      o.value = p; o.textContent = p;
+      selProd.appendChild(o);
+    });
+
+    analisisVariables = r.variables || [];
+    const selVar = $('aVariable');
+    selVar.innerHTML = '';
+    analisisVariables.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.clave; o.textContent = v.etiqueta;
+      selVar.appendChild(o);
+    });
+
+    // El rango por defecto son los ultimos 30 dias de datos que existan, no los
+    // ultimos 30 del calendario: si la planta paro una semana, igual se ve algo.
+    if (r.hasta) {
+      $('aHasta').value = r.hasta;
+      const d = new Date(r.hasta + 'T12:00:00Z');
+      d.setUTCDate(d.getUTCDate() - 30);
+      const desde = d.toISOString().slice(0, 10);
+      $('aDesde').value 	= (r.desde && desde < r.desde) ? r.desde : desde;
+    }
+
+    analisisCatalogoCargado = true;
+    estado.textContent = 'Elegí un producto y presioná Analizar.';
+  } catch (err) {
+    estado.textContent = err.message;
+  }
+}
+
+async function analizar() {
+  const producto = $('aProducto').value;
+  if (!producto) return;
+
+  const estado = $('aEstado');
+  estado.hidden = false;
+  estado.textContent = 'Leyendo mediciones...';
+  $('aResultado').hidden = true;
+
+  const boton = $('btnAnalizar');
+  boton.disabled = true;
+  boton.textContent = 'Analizando...';
+
+  try {
+    const r = await llamar('analisisDatos', {
+      producto,
+      desde: $('aDesde').value,
+      hasta: $('aHasta').value
+    });
+
+    if (r.status !== 'success') { estado.textContent = r.message || 'No se pudo analizar.'; return; }
+
+    analisisRondas = r.rondas || [];
+    analisisTolerancias = r.tolerancias || {};
+
+    if (!analisisRondas.length) {
+      estado.textContent = 'No hay rondas de ese producto en el período elegido.';
+      return;
+    }
+
+    poblarCavidades();
+    $('aVariable').disabled = false;
+    $('aCavidad').disabled = false;
+    estado.hidden = true;
+    $('aResultado').hidden = false;
+    dibujarAnalisis();
+  } catch (err) {
+    estado.textContent = err.message;
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Analizar';
+  }
+}
+
+/* Cuantas cavidades llego a tener el molde en el periodo cargado. */
+function poblarCavidades() {
+  let max = 1;
+  analisisRondas.forEach(r => {
+    (r.porCavidad || []).forEach(t => { max = Math.max(max, Number(t[0]) || 1); });
+  });
+
+  const sel = $('aCavidad');
+  const previo = sel.value;
+  sel.innerHTML = '<option value="">Todas (promedio)</option>';
+  for (let i = 1; i <= max; i++) {
+    const o = document.createElement('option');
+    o.value = String(i); o.textContent = 'Cavidad ' + i;
+    sel.appendChild(o);
+  }
+  if (previo && Number(previo) <= max) sel.value = previo;
+}
+
+/*
+ * Arma las series del grafico.
+ *
+ * Con "Todas" se dibuja el promedio del molde MAS una banda de minimo y maximo
+ * entre cavidades. Esa banda es el dato que importa: si se abre, el molde esta
+ * desbalanceado aunque el promedio siga centrado, y eso no se ve mirando solo el
+ * promedio.
+ */
+function seriesAnalisis(idx, cavidad) {
+  const promedio = [], minimos = [], maximos = [];
+  const cav = cavidad === '' ? null : Number(cavidad);
+
+  analisisRondas.forEach(r => {
+    const tuplas = Array.isArray(r.porCavidad) ? r.porCavidad : [];
+
+    if (cav !== null) {
+      const t = tuplas.find(x => Number(x[0]) === cav);
+      const v = t ? t[idx] : null;
+      promedio.push(typeof v === 'number' ? v : null);
+      minimos.push(null);
+      maximos.push(null);
+      return;
+    }
+
+    const vals = tuplas.map(t => t[idx]).filter(v => typeof v === 'number');
+    if (!vals.length) { promedio.push(null); minimos.push(null); maximos.push(null); return; }
+
+    promedio.push(vals.reduce((a, b) => a + b, 0) / vals.length);
+    minimos.push(Math.min(...vals));
+    maximos.push(Math.max(...vals));
+  });
+
+  return { promedio, minimos, maximos };
+}
+
+function dibujarAnalisis() {
+  const clave = $('aVariable').value;
+  const cavidad = $('aCavidad').value;
+
+  const idx = analisisVariables.findIndex(v => v.clave === clave) + 1;  // +1: la tupla arranca con la cavidad
+  const variable = analisisVariables.find(v => v.clave === clave) || { etiqueta: clave };
+  if (idx < 1) return;
+
+  const serie = seriesAnalisis(idx, cavidad);
+  const etiquetas = analisisRondas.map(r => r.fecha.slice(5) + ' ' + r.hora);
+  const lim = analisisTolerancias[clave] || null;
+
+  const datasets = [{
+    label: cavidad === '' ? 'Promedio del molde' : 'Cavidad ' + cavidad,
+    data: serie.promedio,
+    borderColor: '#0284c7',
+    backgroundColor: 'rgba(2,132,199,0.15)',
+    borderWidth: 2,
+    pointRadius: 3,
+    tension: 0.25,
+    spanGaps: true
+  }];
+
+  if (cavidad === '') {
+    // La banda se dibuja como dos lineas finas rellenas entre si.
+    datasets.push({
+      label: 'Máximo entre cavidades',
+      data: serie.maximos,
+      borderColor: 'rgba(148,163,184,0.7)',
+      borderWidth: 1,
+      pointRadius: 0,
+      fill: '+1',
+      backgroundColor: 'rgba(148,163,184,0.12)',
+      tension: 0.25,
+      spanGaps: true
+    });
+    datasets.push({
+      label: 'Mínimo entre cavidades',
+      data: serie.minimos,
+      borderColor: 'rgba(148,163,184,0.7)',
+      borderWidth: 1,
+      pointRadius: 0,
+      tension: 0.25,
+      spanGaps: true
+    });
+  }
+
+  if (lim) {
+    if (lim.max !== null) datasets.push(lineaLimite('Máximo', lim.max, etiquetas.length));
+    if (lim.min !== null) datasets.push(lineaLimite('Mínimo', lim.min, etiquetas.length));
+  }
+
+  if (analisisChart) analisisChart.destroy();
+  analisisChart = new Chart($('aChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: etiquetas, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#cbd5e1', boxWidth: 14 } },
+        title: { display: true, text: variable.etiqueta, color: '#f8fafc', font: { size: 14 } }
+      },
+      scales: {
+        x: { ticks: { color: '#94a3b8', maxRotation: 60, minRotation: 40 }, grid: { color: 'rgba(148,163,184,0.12)' } },
+        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.12)' } }
+      }
+    }
+  });
+
+  dibujarTablaAnalisis(idx);
+  escribirLeyenda(serie, lim);
+}
+
+function lineaLimite(nombre, valor, largo) {
+  return {
+    label: nombre + ' de especificación',
+    data: new Array(largo).fill(valor),
+    borderColor: '#dc2626',
+    borderWidth: 1.5,
+    borderDash: [6, 4],
+    pointRadius: 0,
+    fill: false
+  };
+}
+
+function dibujarTablaAnalisis(idx) {
+  const body = $('aTablaBody');
+  body.innerHTML = '';
+
+  analisisRondas.forEach(r => {
+    const vals = (r.porCavidad || []).map(t => t[idx]).filter(v => typeof v === 'number');
+
+    const tr = document.createElement('tr');
+    const celdas = vals.length
+      ? [r.fecha, r.hora, r.maquina, vals.length,
+         redondear(Math.min(...vals)),
+         redondear(vals.reduce((a, b) => a + b, 0) / vals.length),
+         redondear(Math.max(...vals)),
+         redondear(Math.max(...vals) - Math.min(...vals))]
+      : [r.fecha, r.hora, r.maquina, 0, '-', '-', '-', '-'];
+
+    celdas.forEach(v => {
+      const td = document.createElement('td');
+      td.textContent = v;
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+function redondear(n) {
+  return (Math.round(n * 100) / 100).toString();
+}
+
+function escribirLeyenda(serie, lim) {
+  const p = $('aLeyenda');
+  const conDato = serie.promedio.filter(v => v !== null).length;
+
+  if (!lim) {
+    p.className = 'analisis-leyenda analisis-leyenda-aviso';
+    p.textContent = 'Este producto no tiene rango cargado en Productos_Specs, ' +
+                    'así que el gráfico va sin líneas de referencia.';
+    return;
+  }
+
+  const fuera = serie.promedio.filter(v => v !== null &&
+    ((lim.min !== null && v < lim.min) || (lim.max !== null && v > lim.max))).length;
+
+  p.className = 'analisis-leyenda' + (fuera > 0 ? ' analisis-leyenda-aviso' : '');
+  p.textContent = fuera > 0
+    ? `${fuera} de ${conDato} ronda(s) con el promedio fuera de especificación.`
+    : `Las ${conDato} rondas tienen el promedio dentro de especificación.`;
+}
+
 // ============ PESTAÑAS ============
 function cambiarPanel(idPanel) {
   document.querySelectorAll('.tab').forEach(t =>
     t.classList.toggle('activa', t.dataset.panel === idPanel));
   document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== idPanel; });
+
+  // El catalogo del analisis se pide recien al abrir su pestaña: no tiene sentido
+  // cargarlo para quien solo viene a bajar un PDF.
+  if (idPanel === 'panelAnalisis') cargarCatalogoAnalisis();
 }
 
 // ============ ARRANQUE ============
@@ -525,6 +838,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => cambiarPanel(t.dataset.panel)));
+
+  $('aProducto').addEventListener('change', () => {
+    $('btnAnalizar').disabled = !$('aProducto').value;
+  });
+  $('btnAnalizar').addEventListener('click', analizar);
+  // Cambiar medicion o cavidad solo repinta: los datos ya estan en memoria.
+  $('aVariable').addEventListener('change', dibujarAnalisis);
+  $('aCavidad').addEventListener('change', dibujarAnalisis);
 
   if (recuperarSesion()) entrarAlPortal();
 

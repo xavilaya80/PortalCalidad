@@ -4,7 +4,7 @@
    de PDFs deben estar siempre al dia; servir una version vieja de una
    especificacion desde cache seria peor que no mostrar nada. */
 
-const CACHE_NAME = 'portal-calidad-v3';
+const CACHE_NAME = 'portal-calidad-v5';
 
 const HOSTS_API = ['script.google.com', 'script.googleusercontent.com'];
 

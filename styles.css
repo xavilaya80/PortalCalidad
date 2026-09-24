@@ -395,3 +395,31 @@ input:disabled {
   line-height: 1.5;
 }
 .nota-fecha strong { color: var(--text-main); }
+
+/* ============ ANÁLISIS ============ */
+
+/* El grafico necesita altura fija: Chart.js con maintainAspectRatio:false crece
+   hasta llenar el contenedor, y sin altura definida el contenedor mide cero. */
+.gráfico-caja {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  height: 420px;
+}
+
+.analisis-leyenda {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  padding-left: 2px;
+}
+.analisis-leyenda-aviso { color: #fbbf24; }
+
+/* El nombre del producto es largo: su selector necesita mas espacio que el resto. */
+.filtro-ancho { grid-column: span 2; }
+
+@media (max-width: 900px) {
+  .filtro-ancho { grid-column: span 1; }
+  .gráfico-caja { height: 320px; padding: 10px; }
+}
