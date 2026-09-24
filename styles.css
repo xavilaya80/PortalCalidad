@@ -423,3 +423,34 @@ input:disabled {
   .filtro-ancho { grid-column: span 1; }
   .gráfico-caja { height: 320px; padding: 10px; }
 }
+
+/* ============ BUSCADOR DE PRODUCTO ============ */
+
+/* El desplegable se posiciona respecto de este contenedor. */
+.combobox-contenedor { position: relative; }
+
+.combobox-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  z-index: 60;
+  display: none;
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.55);
+}
+
+.combobox-item {
+  padding: 9px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg-input);
+}
+.combobox-item:last-child { border-bottom: none; }
+.combobox-item:hover { background: var(--ind-blue); color: #fff; }
+.combobox-item.sin-coincidencias { color: var(--text-muted); cursor: default; }
+.combobox-item.sin-coincidencias:hover { background: transparent; color: var(--text-muted); }

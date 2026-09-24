@@ -158,9 +158,14 @@
     </div>
 
     <div class="filtros">
-      <div class="filtro filtro-ancho">
-        <label for="aProducto">Producto</label>
-        <select id="aProducto"><option value="">Elegí un producto</option></select>
+      <!-- Buscador con lista filtrable en vez de un desplegable comun: los nombres
+           de producto son largos y la lista pasa de cien. Es el mismo control que
+           usa AppCalidad en terreno, asi que quien conoce una conoce la otra. -->
+      <div class="filtro filtro-ancho combobox-contenedor">
+        <label for="aBuscaProducto">Producto</label>
+        <input type="text" id="aBuscaProducto" placeholder="Buscar producto..." autocomplete="off">
+        <input type="hidden" id="aProducto">
+        <div id="aDropProducto" class="combobox-dropdown"></div>
       </div>
       <div class="filtro">
         <label for="aVariable">Medición</label>

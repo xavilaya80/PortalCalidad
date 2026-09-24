@@ -522,6 +522,7 @@ function limpiarFiltros() {
  * mediciones en vez de tres y se agrega la tabla de valores por ronda.
  */
 
+let analisisProductos = [];
 let analisisVariables = [];
 let analisisRondas = [];
 let analisisTolerancias = {};
@@ -539,13 +540,7 @@ async function cargarCatalogoAnalisis() {
     const r = await llamar('analisisCatalogo');
     if (r.status !== 'success') { estado.textContent = r.message || 'No se pudo cargar.'; return; }
 
-    const selProd = $('aProducto');
-    selProd.innerHTML = '<option value="">Elegí un producto</option>';
-    (r.productos || []).forEach(p => {
-      const o = document.createElement('option');
-      o.value = p; o.textContent = p;
-      selProd.appendChild(o);
-    });
+    analisisProductos = r.productos || [];
 
     analisisVariables = r.variables || [];
     const selVar = $('aVariable');
@@ -806,6 +801,71 @@ function escribirLeyenda(serie, lim) {
     : `Las ${conDato} rondas tienen el promedio dentro de especificación.`;
 }
 
+/*
+ * Buscador de producto con lista filtrable.
+ *
+ * Mismo control que usa AppCalidad en terreno. Un desplegable comun con mas de
+ * cien productos de nombre largo obliga a recorrer la lista entera a mano; aca se
+ * escriben tres letras y queda.
+ *
+ * El nombre elegido se guarda en un campo oculto para no depender de lo que se
+ * vea escrito: si alguien teclea algo parecido pero no elige de la lista, el
+ * campo queda vacio y el boton Analizar sigue deshabilitado.
+ */
+function setupBuscadorProducto() {
+  const input = $('aBuscaProducto');
+  const oculto = $('aProducto');
+  const drop = $('aDropProducto');
+  if (!input || !drop) return;
+
+  const mostrar = () => {
+    const filtro = input.value.toLowerCase().trim();
+    drop.innerHTML = '';
+
+    const encontrados = analisisProductos.filter(p => p.toLowerCase().includes(filtro));
+
+    if (!encontrados.length) {
+      const vacio = document.createElement('div');
+      vacio.className = 'combobox-item sin-coincidencias';
+      vacio.textContent = analisisProductos.length
+        ? 'Sin coincidencias'
+        : 'Todavía no se cargaron los productos';
+      drop.appendChild(vacio);
+    } else {
+      encontrados.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'combobox-item';
+        item.textContent = p;
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          input.value = p;
+          oculto.value = p;
+          $('btnAnalizar').disabled = false;
+          drop.style.display = 'none';
+        });
+        drop.appendChild(item);
+      });
+    }
+    drop.style.display = 'block';
+  };
+
+  input.addEventListener('focus', mostrar);
+  input.addEventListener('click', mostrar);
+  input.addEventListener('input', () => {
+    // Escribir invalida la eleccion anterior: evita analizar un producto que ya
+    // no es el que figura en pantalla.
+    oculto.value = '';
+    $('btnAnalizar').disabled = true;
+    mostrar();
+  });
+
+  // Un clic fuera cierra la lista.
+  document.addEventListener('click', (e) => {
+    if (e.target !== input && !drop.contains(e.target)) drop.style.display = 'none';
+  });
+}
+
 // ============ PESTAÑAS ============
 function cambiarPanel(idPanel) {
   document.querySelectorAll('.tab').forEach(t =>
@@ -839,9 +899,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => cambiarPanel(t.dataset.panel)));
 
-  $('aProducto').addEventListener('change', () => {
-    $('btnAnalizar').disabled = !$('aProducto').value;
-  });
+  setupBuscadorProducto();
   $('btnAnalizar').addEventListener('click', analizar);
   // Cambiar medicion o cavidad solo repinta: los datos ya estan en memoria.
   $('aVariable').addEventListener('change', dibujarAnalisis);
