@@ -4,15 +4,18 @@
    de PDFs deben estar siempre al dia; servir una version vieja de una
    especificacion desde cache seria peor que no mostrar nada. */
 
-const CACHE_NAME = 'portal-calidad-v9';
+const CACHE_NAME = 'portal-calidad-v10';
 
 const HOSTS_API = ['script.google.com', 'script.googleusercontent.com'];
 
 const ASSETS_LOCALES = [
   './',
   'index.html',
-  'styles.css',
-  'app.js',
+  // Con la version en la URL: index.html pide 'app.js?v=10', y cache.match compara
+  // la URL COMPLETA. Si aca se guardara 'app.js' a secas, la peticion no
+  // encontraria nada en cache y el portal quedaria inservible sin conexion.
+  'styles.css?v=10',
+  'app.js?v=10',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -58,7 +61,10 @@ self.addEventListener('fetch', (e) => {
       if (res && res.ok) cache.put(e.request, res.clone());
       return res;
     } catch (err) {
-      const hit = await cache.match(e.request);
+      let hit = await cache.match(e.request);
+      // Segundo intento ignorando la ?v=: cubre el caso de un navegador que
+      // todavia tiene guardada la version anterior del archivo.
+      if (!hit) hit = await cache.match(e.request, { ignoreSearch: true });
       if (hit) return hit;
       if (e.request.mode === 'navigate') {
         const index = await cache.match('index.html');
