@@ -63,36 +63,81 @@ function cerrarSesion(mensaje) {
  * una peticion OPTIONS previa (preflight) que Apps Script no responde, y la
  * llamada falla por CORS. Es el mismo truco que usa AppCalidad.
  */
+/*
+ * Codigos que indican que el servidor no esta disponible EN ESTE INSTANTE, no
+ * que la peticion este mal.
+ *
+ * El 404 es el que mas aparece: al publicar una version nueva del backend, Apps
+ * Script deja la URL sin responder unos segundos. Tambien se ve cuando Google
+ * demora en servir la respuesta a traves de googleusercontent.
+ */
+const HTTP_TRANSITORIOS = [404, 408, 429, 500, 502, 503, 504];
+const REINTENTOS = 3;
+
+const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
+/*
+ * Reintentar es seguro para todo lo que hace el portal:
+ *   listarSpecs, listarPDFs, descargarPDF, analisis*  ->  solo leen
+ *   guardarSpec  ->  escribe siempre los mismos valores
+ *   agregarSpec  ->  rechaza codigos repetidos, asi que un reenvio no duplica
+ *
+ * Por eso el reintento es automatico y no le pregunta nada al usuario: antes
+ * habia que volver a apretar el boton sin saber por que habia fallado.
+ */
 async function llamar(action, extra = {}) {
   const cuerpo = Object.assign({ action }, extra);
   if (sesion && sesion.token) cuerpo.token = sesion.token;
 
-  let respuesta;
-  try {
-    respuesta = await fetch(PORTAL_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(cuerpo),
-      redirect: 'follow'
-    });
-  } catch (err) {
-    throw new Error('Sin conexión con el servidor. Revisá la red e intentá de nuevo.');
+  let ultimoError = null;
+
+  for (let intento = 1; intento <= REINTENTOS; intento++) {
+    let respuesta;
+    try {
+      respuesta = await fetch(PORTAL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(cuerpo),
+        redirect: 'follow'
+      });
+    } catch (err) {
+      // Fallo de red: puede ser momentaneo, se reintenta.
+      ultimoError = new Error('Sin conexión con el servidor. Revisá la red e intentá de nuevo.');
+      if (intento < REINTENTOS) { await esperar(1200 * intento); continue; }
+      throw ultimoError;
+    }
+
+    if (!respuesta.ok) {
+      const transitorio = HTTP_TRANSITORIOS.indexOf(respuesta.status) !== -1;
+
+      if (transitorio && intento < REINTENTOS) {
+        // Espera creciente: 1,2 s y despues 2,4 s. Suele alcanzar de sobra para
+        // que termine un redespliegue.
+        await esperar(1200 * intento);
+        continue;
+      }
+
+      throw new Error(transitorio
+        ? `El servidor no está disponible en este momento (error ${respuesta.status}).\n\n` +
+          `Suele pasar mientras se publica una actualización. Probá de nuevo en unos segundos.`
+        : `El servidor respondió con error ${respuesta.status}.`);
+    }
+
+    let datos;
+    try {
+      datos = await respuesta.json();
+    } catch (err) {
+      throw new Error('Respuesta inesperada del servidor.');
+    }
+
+    if (datos.code === 401) {
+      cerrarSesion('Tu sesión expiró. Ingresá de nuevo.');
+      throw new Error('Sesión expirada.');
+    }
+    return datos;
   }
 
-  if (!respuesta.ok) throw new Error('El servidor respondió con error ' + respuesta.status + '.');
-
-  let datos;
-  try {
-    datos = await respuesta.json();
-  } catch (err) {
-    throw new Error('Respuesta inesperada del servidor.');
-  }
-
-  if (datos.code === 401) {
-    cerrarSesion('Tu sesión expiró. Ingresá de nuevo.');
-    throw new Error('Sesión expirada.');
-  }
-  return datos;
+  throw ultimoError || new Error('No se pudo contactar al servidor.');
 }
 
 // ============ AVISOS ============
