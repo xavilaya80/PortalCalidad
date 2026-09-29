@@ -148,8 +148,12 @@ function entrarAlPortal() {
   $('badgeUsuario').textContent = nombre + ' · ' + (esJefa ? 'Edición' : 'Solo lectura');
   $('badgeUsuario').className = 'badge ' + (esJefa ? 'badge-jefa' : 'badge-lector');
 
+  // El boton de alta es cosmetico: quien decide es agregarSpec en el servidor.
+  const btnNuevo = $('btnNuevoProducto');
+  if (btnNuevo) btnNuevo.hidden = !esJefa;
+
   $('specsModo').textContent = esJefa
-    ? 'Podés modificar las especificaciones. Cada cambio queda registrado con tu usuario.'
+    ? 'Podés agregar productos y modificar sus especificaciones. Cada cambio queda registrado con tu usuario.'
     : 'Vista de solo lectura. Para modificar, consultá con la jefa de calidad.';
 
   cargarSpecs();
@@ -505,6 +509,100 @@ function limpiarFiltros() {
   $('pdfsEstado').hidden = false;
   $('pdfsEstado').textContent = 'Usá los filtros y presioná Buscar.';
   $('tablaPdfs').hidden = true;
+}
+
+// ============ NUEVO PRODUCTO ============
+/*
+ * El formulario se arma leyendo los encabezados reales de Productos_Specs, igual
+ * que la edicion. Asi, si el area agrega una columna a la planilla, aparece sola
+ * tambien aqui y no hay que tocar codigo.
+ */
+function abrirModalNuevo() {
+  if (!columnasSpecs.length) {
+    toast('Primero hay que cargar las especificaciones.', 'error');
+    return;
+  }
+
+  const contenedor = $('nuevoCampos');
+  contenedor.innerHTML = '';
+  $('nuevoError').hidden = true;
+
+  columnasSpecs.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'campo';
+
+    const label = document.createElement('label');
+    label.setAttribute('for', 'nuevo_' + i);
+    label.textContent = c + (i === 0 ? ' (obligatorio)' : '');
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'nuevo_' + i;
+    input.dataset.columna = c;
+    // La primera columna es el codigo con el que cada inspeccion queda ligada al
+    // producto: sin el, la ficha no sirve para nada.
+    if (i === 0) input.placeholder = 'Código del producto';
+
+    div.appendChild(label);
+    div.appendChild(input);
+    contenedor.appendChild(div);
+  });
+
+  $('modalNuevo').hidden = false;
+  const primero = $('nuevo_0');
+  if (primero) primero.focus();
+}
+
+function cerrarModalNuevo() {
+  $('modalNuevo').hidden = true;
+}
+
+async function guardarNuevoProducto() {
+  const valores = {};
+  let invalido = null;
+
+  $('nuevoCampos').querySelectorAll('input').forEach(inp => {
+    const v = inp.value.trim();
+    if (v.charAt(0) === '=') invalido = inp.dataset.columna;
+    valores[inp.dataset.columna] = v;
+  });
+
+  const err = $('nuevoError');
+
+  if (invalido) {
+    err.textContent = 'El valor de "' + invalido + '" no puede empezar con "=".';
+    err.hidden = false;
+    return;
+  }
+
+  if (!String(valores[columnasSpecs[0]] || '').trim()) {
+    err.textContent = 'El código del producto es obligatorio.';
+    err.hidden = false;
+    return;
+  }
+  err.hidden = true;
+
+  const boton = $('nuevoGuardar');
+  boton.disabled = true;
+  boton.textContent = 'Agregando...';
+
+  try {
+    const r = await llamar('agregarSpec', { valores });
+    if (r.status !== 'success') {
+      err.textContent = r.message || 'No se pudo agregar.';
+      err.hidden = false;
+      return;
+    }
+    cerrarModalNuevo();
+    toast('Producto agregado: ' + r.codigo);
+    cargarSpecs();
+  } catch (e) {
+    err.textContent = e.message;
+    err.hidden = false;
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Agregar producto';
+  }
 }
 
 // ============ ANÁLISIS DE TENDENCIA ============
@@ -894,6 +992,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('btnSalir').addEventListener('click', () => cerrarSesion(''));
   $('btnRecargarSpecs').addEventListener('click', cargarSpecs);
+  $('btnNuevoProducto').addEventListener('click', abrirModalNuevo);
+  $('nuevoCerrar').addEventListener('click', cerrarModalNuevo);
+  $('nuevoCancelar').addEventListener('click', cerrarModalNuevo);
+  $('nuevoGuardar').addEventListener('click', guardarNuevoProducto);
+  $('modalNuevo').addEventListener('click', e => { if (e.target.id === 'modalNuevo') cerrarModalNuevo(); });
   $('buscarSpec').addEventListener('input', () => { if (productos.length) dibujarSpecs(); });
 
   $('btnBuscarPdfs').addEventListener('click', buscarPdfs);
@@ -904,7 +1007,11 @@ document.addEventListener('DOMContentLoaded', () => {
   $('modalCancelar').addEventListener('click', cerrarModal);
   $('modalGuardar').addEventListener('click', guardarModal);
   $('modalSpec').addEventListener('click', e => { if (e.target.id === 'modalSpec') cerrarModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modalSpec').hidden) cerrarModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!$('modalSpec').hidden) cerrarModal();
+    if (!$('modalNuevo').hidden) cerrarModalNuevo();
+  });
 
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => cambiarPanel(t.dataset.panel)));

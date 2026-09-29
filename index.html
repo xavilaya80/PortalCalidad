@@ -65,6 +65,8 @@
       </div>
       <div class="panel-actions">
         <input type="search" id="buscarSpec" placeholder="Buscar producto...">
+        <!-- Solo se muestra al rol jefa; lo habilita entrarAlPortal. -->
+        <button id="btnNuevoProducto" class="btn btn-primary" hidden>+ Nuevo producto</button>
         <button id="btnRecargarSpecs" class="btn btn-ghost">Recargar</button>
       </div>
     </div>
@@ -224,6 +226,22 @@
     <div class="modal-pie">
       <button id="modalCancelar" class="btn btn-ghost">Cancelar</button>
       <button id="modalGuardar" class="btn btn-primary">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL NUEVO PRODUCTO ============ -->
+<div id="modalNuevo" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>Nuevo producto</h3>
+      <button id="nuevoCerrar" class="btn-x" aria-label="Cerrar">&times;</button>
+    </div>
+    <div id="nuevoCampos" class="modal-body"></div>
+    <p id="nuevoError" class="msg-error" hidden></p>
+    <div class="modal-pie">
+      <button id="nuevoCancelar" class="btn btn-ghost">Cancelar</button>
+      <button id="nuevoGuardar" class="btn btn-primary">Agregar producto</button>
     </div>
   </div>
 </div>
