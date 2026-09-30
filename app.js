@@ -556,6 +556,90 @@ function limpiarFiltros() {
   $('tablaPdfs').hidden = true;
 }
 
+// ============ FILTRO DE MÁQUINA ============
+/*
+ * Buscador con lista para el filtro de maquina.
+ *
+ * A diferencia del de producto, aca NO hay campo oculto: lo que se escribe es lo
+ * que se busca. El backend compara ignorando guiones y espacios, asi que elegir
+ * "Bekum 1" de la lista o escribir "bkm1" a mano encuentran lo mismo.
+ *
+ * Dejar escribir libremente importa: a veces se busca por una parte del codigo, o
+ * por una maquina que ya no esta en la lista oficial pero si tiene reportes viejos.
+ */
+let maquinasFiltro = [];
+let maquinasCargadas = false;
+
+async function cargarMaquinasFiltro() {
+  if (maquinasCargadas) return;
+  try {
+    const r = await llamar('listarMaquinas');
+    if (r.status === 'success') {
+      maquinasFiltro = r.maquinas || [];
+      maquinasCargadas = true;
+    }
+  } catch (e) {
+    // Sin lista se sigue pudiendo escribir a mano: no vale la pena molestar.
+    console.warn('No se pudo cargar la lista de máquinas:', e);
+  }
+}
+
+function setupBuscadorMaquina() {
+  const input = $('fMaquina');
+  const drop = $('fDropMaquina');
+  if (!input || !drop) return;
+
+  const mostrar = () => {
+    const filtro = input.value.toLowerCase().trim();
+    drop.innerHTML = '';
+
+    // "Todas" primero: es la opcion mas usada y limpia el filtro de un toque.
+    const todas = document.createElement('div');
+    todas.className = 'combobox-item';
+    todas.textContent = 'Todas las máquinas';
+    todas.addEventListener('click', (e) => {
+      e.stopPropagation();
+      input.value = '';
+      drop.style.display = 'none';
+    });
+    drop.appendChild(todas);
+
+    const encontradas = maquinasFiltro.filter(m =>
+      m.nombre.toLowerCase().includes(filtro) || m.id.toLowerCase().includes(filtro));
+
+    encontradas.forEach(m => {
+      const item = document.createElement('div');
+      item.className = 'combobox-item';
+      // Se muestra el nombre y, si difiere, tambien el codigo: en los reportes
+      // las maquinas figuran por codigo.
+      item.textContent = (m.nombre === m.id) ? m.nombre : m.nombre + '  ·  ' + m.id;
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        input.value = m.id;
+        drop.style.display = 'none';
+      });
+      drop.appendChild(item);
+    });
+
+    if (!encontradas.length && filtro) {
+      const nota = document.createElement('div');
+      nota.className = 'combobox-item sin-coincidencias';
+      nota.textContent = 'Ninguna máquina coincide. Se buscará igual con lo escrito.';
+      drop.appendChild(nota);
+    }
+
+    drop.style.display = 'block';
+  };
+
+  input.addEventListener('focus', mostrar);
+  input.addEventListener('click', mostrar);
+  input.addEventListener('input', mostrar);
+
+  document.addEventListener('click', (e) => {
+    if (e.target !== input && !drop.contains(e.target)) drop.style.display = 'none';
+  });
+}
+
 // ============ NUEVO PRODUCTO ============
 /*
  * El formulario se arma leyendo los encabezados reales de Productos_Specs, igual
@@ -1028,6 +1112,7 @@ function cambiarPanel(idPanel) {
   // El catalogo del analisis se pide recien al abrir su pestaña: no tiene sentido
   // cargarlo para quien solo viene a bajar un PDF.
   if (idPanel === 'panelAnalisis') cargarCatalogoAnalisis();
+  if (idPanel === 'panelPdfs') cargarMaquinasFiltro();
 }
 
 // ============ ARRANQUE ============
@@ -1044,6 +1129,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('modalNuevo').addEventListener('click', e => { if (e.target.id === 'modalNuevo') cerrarModalNuevo(); });
   $('buscarSpec').addEventListener('input', () => { if (productos.length) dibujarSpecs(); });
 
+  setupBuscadorMaquina();
   $('btnBuscarPdfs').addEventListener('click', buscarPdfs);
   $('btnLimpiarPdfs').addEventListener('click', limpiarFiltros);
   $('fTexto').addEventListener('keydown', e => { if (e.key === 'Enter') buscarPdfs(); });

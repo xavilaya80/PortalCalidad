@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=12">
   <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </head>
 <body>
@@ -36,7 +36,7 @@
     <!-- Sirve para saber, desde la propia pantalla, si el navegador cargo la
          version nueva o sigue sirviendo una copia vieja desde cache. Sin esto,
          "no se actualizo" y "no funciona el cambio" se ven exactamente igual. -->
-    <p id="app-version" style="color:#64748b; font-size:0.72rem; margin-top:6px;">v11</p>
+    <p id="app-version" style="color:#64748b; font-size:0.72rem; margin-top:6px;">v12</p>
   </div>
 </section>
 
@@ -102,9 +102,13 @@
           <option>Resumen de turno</option>
         </select>
       </div>
-      <div class="filtro">
+      <!-- Buscador con lista, igual que el de producto: se puede elegir de la
+           lista o escribir. Escribir sigue sirviendo para buscar por parte del
+           codigo sin tener que encontrar la maquina en el desplegable. -->
+      <div class="filtro combobox-contenedor">
         <label for="fMaquina">Máquina</label>
-        <input type="text" id="fMaquina" placeholder="Ej: 3">
+        <input type="text" id="fMaquina" placeholder="Todas" autocomplete="off">
+        <div id="fDropMaquina" class="combobox-dropdown"></div>
       </div>
       <div class="filtro">
         <label for="fTurno">Turno</label>
@@ -252,6 +256,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
