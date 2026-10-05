@@ -226,6 +226,11 @@ async function cargarSpecs() {
     }
     estado.hidden = true;
     dibujarSpecs();
+
+    const duplicados = productos.filter(p => p._duplicado).length;
+    if (duplicados > 0 && sesion.rol === 'jefa') {
+      toast(`Hay ${duplicados} fila(s) con código duplicado, marcadas en rojo.`, 'error');
+    }
   } catch (err) {
     estado.textContent = err.message;
   }
@@ -273,18 +278,65 @@ function dibujarSpecs() {
       });
       if (esJefa) {
         const td = document.createElement('td');
+        td.className = 'celda-acciones';
+
         const b = document.createElement('button');
         b.className = 'btn btn-mini';
         b.textContent = 'Editar';
         b.addEventListener('click', () => abrirModal(p));
         td.appendChild(b);
+
+        const bDel = document.createElement('button');
+        bDel.className = 'btn btn-mini btn-peligro';
+        bDel.textContent = 'Eliminar';
+        bDel.addEventListener('click', () => eliminarProducto(p));
+        td.appendChild(bDel);
+
         tr.appendChild(td);
       }
+
+      // Los codigos repetidos se tiñen: es lo que hay que resolver, no un dato mas.
+      if (p._duplicado) tr.classList.add('fila-duplicada');
+
       body.appendChild(tr);
     });
   }
 
   $('tablaSpecs').hidden = false;
+}
+
+/*
+ * Elimina un producto, con confirmacion que nombra lo que se va a borrar.
+ *
+ * Se pide confirmar con el nombre completo y no un "¿seguro?" generico: la
+ * mayoria de estas eliminaciones son de duplicados que se parecen entre si, y
+ * equivocarse de fila significa borrar la ficha buena.
+ */
+async function eliminarProducto(p) {
+  const codigo = p[columnasSpecs[0]];
+  const nombre = p[columnasSpecs[1]] || '';
+
+  const aviso = p._duplicado
+    ? '\n\nEste código está duplicado. Revisá que estés borrando la copia y no la ficha correcta.'
+    : '';
+
+  if (!confirm(
+    `¿Eliminar este producto?\n\n${codigo}\n${nombre}${aviso}\n\n` +
+    `No se puede deshacer desde la app. Si te equivocás, se recupera desde el ` +
+    `historial de versiones de la planilla.`
+  )) return;
+
+  try {
+    const r = await llamar('eliminarSpec', { fila: p._fila, codigo });
+    if (r.status !== 'success') { toast(r.message || 'No se pudo eliminar.', 'error'); return; }
+
+    toast('Producto eliminado: ' + r.codigo);
+    // Recarga obligatoria: al borrar una fila, el numero de todas las de abajo
+    // cambia, y editar con un numero viejo tocaria el producto equivocado.
+    cargarSpecs();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
 }
 
 // ============ MODAL DE EDICION ============

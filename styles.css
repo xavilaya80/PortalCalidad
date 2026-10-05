@@ -454,3 +454,10 @@ input:disabled {
 .combobox-item:hover { background: var(--ind-blue); color: #fff; }
 .combobox-item.sin-coincidencias { color: var(--text-muted); cursor: default; }
 .combobox-item.sin-coincidencias:hover { background: transparent; color: var(--text-muted); }
+
+/* Fila con codigo duplicado: hay que resolverla, no es un dato mas. */
+.tabla tbody tr.fila-duplicada { background: rgba(220, 38, 38, 0.10); }
+.tabla tbody tr.fila-duplicada:hover { background: rgba(220, 38, 38, 0.18); }
+
+.btn-mini.btn-peligro { border-color: rgba(220, 38, 38, 0.5); }
+.btn-mini.btn-peligro:hover:not(:disabled) { background: var(--ng-red); }

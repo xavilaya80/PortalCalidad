@@ -4,18 +4,18 @@
    de PDFs deben estar siempre al dia; servir una version vieja de una
    especificacion desde cache seria peor que no mostrar nada. */
 
-const CACHE_NAME = 'portal-calidad-v12';
+const CACHE_NAME = 'portal-calidad-v13';
 
 const HOSTS_API = ['script.google.com', 'script.googleusercontent.com'];
 
 const ASSETS_LOCALES = [
   './',
   'index.html',
-  // Con la version en la URL: index.html pide 'app.js?v=12', y cache.match compara
+  // Con la version en la URL: index.html pide 'app.js?v=13', y cache.match compara
   // la URL COMPLETA. Si aca se guardara 'app.js' a secas, la peticion no
   // encontraria nada en cache y el portal quedaria inservible sin conexion.
-  'styles.css?v=12',
-  'app.js?v=12',
+  'styles.css?v=13',
+  'app.js?v=13',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',
