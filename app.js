@@ -74,7 +74,29 @@ function cerrarSesion(mensaje) {
 const HTTP_TRANSITORIOS = [404, 408, 429, 500, 502, 503, 504];
 const REINTENTOS = 3;
 
+/*
+ * Limite de espera por intento.
+ *
+ * Faltaba, y era un problema serio: sin timeout, una peticion que el servidor no
+ * contesta deja al navegador esperando para siempre. Sumado al reintento, un
+ * guardado podia quedar colgado diez minutos o mas sin decir nada.
+ *
+ * Las operaciones del portal son todas cortas -leer o escribir unas filas-, asi
+ * que 45 s es muchisimo margen: si se alcanza, algo se colgo de verdad.
+ */
+const TIMEOUT_MS = 45000;
+
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function fetchConLimite(url, opciones, ms) {
+  const control = new AbortController();
+  const alarma = setTimeout(() => control.abort(), ms);
+  try {
+    return await fetch(url, Object.assign({}, opciones, { signal: control.signal }));
+  } finally {
+    clearTimeout(alarma);
+  }
+}
 
 /*
  * Reintentar es seguro para todo lo que hace el portal:
@@ -94,15 +116,21 @@ async function llamar(action, extra = {}) {
   for (let intento = 1; intento <= REINTENTOS; intento++) {
     let respuesta;
     try {
-      respuesta = await fetch(PORTAL_URL, {
+      respuesta = await fetchConLimite(PORTAL_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(cuerpo),
         redirect: 'follow'
-      });
+      }, TIMEOUT_MS);
     } catch (err) {
-      // Fallo de red: puede ser momentaneo, se reintenta.
-      ultimoError = new Error('Sin conexión con el servidor. Revisá la red e intentá de nuevo.');
+      // Se distingue "tardo demasiado" de "no hay red": lo que hay que hacer en
+      // cada caso es distinto, y antes los dos decian lo mismo.
+      const expiro = (err && err.name === 'AbortError');
+      ultimoError = new Error(expiro
+        ? `El servidor no respondió en ${TIMEOUT_MS / 1000} segundos.\n\n` +
+          `Hay conexión, pero el servidor está tardando. Probá de nuevo en un momento.`
+        : 'Sin conexión con el servidor. Revisá la red e intentá de nuevo.');
+
       if (intento < REINTENTOS) { await esperar(1200 * intento); continue; }
       throw ultimoError;
     }
