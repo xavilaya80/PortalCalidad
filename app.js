@@ -24,6 +24,15 @@ const PORTAL_URL = 'https://script.google.com/macros/s/AKfycby-g67rvd3sGRXueL-e3
 let sesion = null;        // { token, usuario, rol }
 let columnasSpecs = [];
 let productos = [];
+/*
+ * Columna que lleva la fecha del ultimo cambio.
+ *
+ * La escribe el servidor en cada guardado, asi que en los formularios se muestra
+ * pero no se puede editar: un campo de fecha que alguien teclea a mano diria lo
+ * que esa persona escribio, no cuando se modifico el producto.
+ */
+const COL_ACTUALIZADO = 'Ultima_actualizacion';
+
 let filaEditando = null;
 
 // ============ ACCESOS ============
@@ -397,6 +406,13 @@ function abrirModal(producto) {
       input.title = 'El identificador no se puede modificar.';
     }
 
+    if (c === COL_ACTUALIZADO) {
+      input.disabled = true;
+      input.title = 'Se actualiza sola cada vez que se guarda un cambio.';
+      input.placeholder = 'Se completa al guardar';
+      label.textContent = c + ' (automática)';
+    }
+
     div.appendChild(label);
     div.appendChild(input);
     contenedor.appendChild(div);
@@ -737,6 +753,9 @@ function abrirModalNuevo() {
   $('nuevoError').hidden = true;
 
   columnasSpecs.forEach((c, i) => {
+    // La fecha no se pide: la pone el servidor al crear el producto.
+    if (c === COL_ACTUALIZADO) return;
+
     const div = document.createElement('div');
     div.className = 'campo';
 
